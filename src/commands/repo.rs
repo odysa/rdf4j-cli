@@ -46,11 +46,7 @@ fn emit(
     Ok(())
 }
 
-pub fn generate_repo_config(
-    id: &str,
-    title: Option<&str>,
-    repo_type: RepoType,
-) -> Result<Vec<u8>> {
+pub fn generate_repo_config(id: &str, title: Option<&str>, repo_type: RepoType) -> Result<Vec<u8>> {
     let rdf_type = NamedNode::new_unchecked("http://www.w3.org/1999/02/22-rdf-syntax-ns#type");
     let rdfs_label = NamedNode::new_unchecked("http://www.w3.org/2000/01/rdf-schema#label");
 

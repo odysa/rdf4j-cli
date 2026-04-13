@@ -1,7 +1,7 @@
-//! Integration tests against a real RDF4J server running in Docker.
+//! Integration tests against a real RDF4J server.
 //!
-//! These tests use testcontainers to spin up an `eclipse/rdf4j-workbench`
-//! container. They require Docker to be running.
+//! Set `RDF4J_TEST_URL` to use an external server (e.g. in CI with a service container).
+//! Otherwise, testcontainers spins up `eclipse/rdf4j-workbench` automatically.
 
 use std::sync::OnceLock;
 use std::thread;
@@ -18,17 +18,38 @@ use rdf4j_cli::commands::repo::generate_repo_config;
 
 const RDF4J_PORT: u16 = 8080;
 
-/// Shared container across all tests to avoid repeated ~10s startup.
-static CONTAINER: OnceLock<ContainerState> = OnceLock::new();
+static SERVER: OnceLock<ServerState> = OnceLock::new();
 
-struct ContainerState {
-    base_url: String,
-    _container: ContainerAsync<GenericImage>,
+enum ServerState {
+    /// External server provided via RDF4J_TEST_URL.
+    External { base_url: String },
+    /// Testcontainers-managed server.
+    Container {
+        base_url: String,
+        _container: Box<ContainerAsync<GenericImage>>,
+    },
 }
 
-async fn get_or_init_container() -> &'static ContainerState {
-    if let Some(state) = CONTAINER.get() {
+impl ServerState {
+    fn base_url(&self) -> &str {
+        match self {
+            Self::External { base_url } | Self::Container { base_url, .. } => base_url,
+        }
+    }
+}
+
+async fn get_server() -> &'static ServerState {
+    if let Some(state) = SERVER.get() {
         return state;
+    }
+
+    // If RDF4J_TEST_URL is set, use that directly (CI with service container).
+    if let Ok(url) = std::env::var("RDF4J_TEST_URL") {
+        let state = ServerState::External {
+            base_url: url.clone(),
+        };
+        let _ = SERVER.set(state);
+        return SERVER.get().unwrap();
     }
 
     let container = GenericImage::new("eclipse/rdf4j-workbench", "latest")
@@ -47,13 +68,13 @@ async fn get_or_init_container() -> &'static ContainerState {
 
     wait_for_server(&base_url);
 
-    let state = ContainerState {
+    let state = ServerState::Container {
         base_url,
-        _container: container,
+        _container: Box::new(container),
     };
 
-    let _ = CONTAINER.set(state);
-    CONTAINER.get().unwrap()
+    let _ = SERVER.set(state);
+    SERVER.get().unwrap()
 }
 
 fn wait_for_server(base_url: &str) {
@@ -84,15 +105,15 @@ fn test_repo_config(id: &str) -> Vec<u8> {
 
 #[tokio::test]
 async fn test_health() {
-    let state = get_or_init_container().await;
-    let client = new_client(&state.base_url);
+    let state = get_server().await;
+    let client = new_client(state.base_url());
     assert!(client.health().unwrap());
 }
 
 #[tokio::test]
 async fn test_protocol() {
-    let state = get_or_init_container().await;
-    let client = new_client(&state.base_url);
+    let state = get_server().await;
+    let client = new_client(state.base_url());
     let version = client.protocol().unwrap();
     assert!(!version.is_empty());
 }
@@ -101,8 +122,8 @@ async fn test_protocol() {
 
 #[tokio::test]
 async fn test_create_list_delete_repo() {
-    let state = get_or_init_container().await;
-    let client = new_client(&state.base_url);
+    let state = get_server().await;
+    let client = new_client(state.base_url());
     let repo_id = random_repo_id();
 
     client
@@ -125,8 +146,8 @@ async fn test_create_list_delete_repo() {
 
 #[tokio::test]
 async fn test_sparql_insert_and_query() {
-    let state = get_or_init_container().await;
-    let client = new_client(&state.base_url);
+    let state = get_server().await;
+    let client = new_client(state.base_url());
     let repo_id = random_repo_id();
 
     client
@@ -139,9 +160,7 @@ async fn test_sparql_insert_and_query() {
             <http://example.org/bob> <http://example.org/name> "Bob" .
         }
     "#;
-    client
-        .sparql_update(&repo_id, insert.to_string())
-        .unwrap();
+    client.sparql_update(&repo_id, insert.to_string()).unwrap();
 
     assert_eq!(client.repo_size(&repo_id).unwrap(), 2);
 
@@ -171,8 +190,8 @@ async fn test_sparql_insert_and_query() {
 
 #[tokio::test]
 async fn test_add_get_delete_statements() {
-    let state = get_or_init_container().await;
-    let client = new_client(&state.base_url);
+    let state = get_server().await;
+    let client = new_client(state.base_url());
     let repo_id = random_repo_id();
 
     client
@@ -203,9 +222,7 @@ async fn test_add_get_delete_statements() {
         subj: Some("<http://example.org/s1>".to_string()),
         ..StatementFilter::default()
     };
-    let stmts = client
-        .get_statements(&repo_id, &subj_filter, true)
-        .unwrap();
+    let stmts = client.get_statements(&repo_id, &subj_filter, true).unwrap();
     assert!(stmts.contains("example.org/s1"));
     assert!(!stmts.contains("example.org/s2"));
 
@@ -219,8 +236,8 @@ async fn test_add_get_delete_statements() {
 
 #[tokio::test]
 async fn test_namespace_crud() {
-    let state = get_or_init_container().await;
-    let client = new_client(&state.base_url);
+    let state = get_server().await;
+    let client = new_client(state.base_url());
     let repo_id = random_repo_id();
 
     client
@@ -253,8 +270,8 @@ async fn test_namespace_crud() {
 async fn test_upload_turtle_file() {
     use oxrdfio::{RdfFormat, RdfParser, RdfSerializer};
 
-    let state = get_or_init_container().await;
-    let client = new_client(&state.base_url);
+    let state = get_server().await;
+    let client = new_client(state.base_url());
     let repo_id = random_repo_id();
 
     client
@@ -329,9 +346,7 @@ fn test_rdf_format_detect() {
     use std::path::Path;
 
     // Explicit arg always wins
-    assert!(
-        RdfFormatArg::resolve(Some(RdfFormatArg::Turtle), Path::new("data.nq")).is_ok()
-    );
+    assert!(RdfFormatArg::resolve(Some(RdfFormatArg::Turtle), Path::new("data.nq")).is_ok());
 
     // Detection from extension
     assert!(RdfFormatArg::resolve(None, Path::new("data.ttl")).is_ok());

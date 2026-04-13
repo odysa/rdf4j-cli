@@ -13,16 +13,14 @@ pub fn format_sparql_results(json_bytes: &[u8], format: OutputFormat) -> Result<
         .context("Failed to parse SPARQL results")?;
 
     match parsed {
-        ReaderQueryResultsParserOutput::Boolean(value) => {
-            match format {
-                OutputFormat::Json => {
-                    println!("{}", serde_json::json!({ "boolean": value }));
-                }
-                _ => {
-                    println!("{value}");
-                }
+        ReaderQueryResultsParserOutput::Boolean(value) => match format {
+            OutputFormat::Json => {
+                println!("{}", serde_json::json!({ "boolean": value }));
             }
-        }
+            _ => {
+                println!("{value}");
+            }
+        },
         ReaderQueryResultsParserOutput::Solutions(solutions) => {
             let vars: Vec<String> = solutions
                 .variables()
@@ -62,10 +60,7 @@ pub fn format_sparql_results(json_bytes: &[u8], format: OutputFormat) -> Result<
                         .map(|row| {
                             let mut map = serde_json::Map::new();
                             for (var, val) in vars.iter().zip(row.iter()) {
-                                map.insert(
-                                    var.clone(),
-                                    serde_json::Value::String(val.clone()),
-                                );
+                                map.insert(var.clone(), serde_json::Value::String(val.clone()));
                             }
                             serde_json::Value::Object(map)
                         })
@@ -91,10 +86,7 @@ pub fn format_sparql_results(json_bytes: &[u8], format: OutputFormat) -> Result<
 pub fn format_scalar(label: &str, value: impl std::fmt::Display, format: OutputFormat) {
     match format {
         OutputFormat::Json => {
-            println!(
-                "{}",
-                serde_json::json!({ label: value.to_string() })
-            );
+            println!("{}", serde_json::json!({ label: value.to_string() }));
         }
         OutputFormat::Csv => {
             let mut wtr = csv::Writer::from_writer(std::io::stdout());
@@ -112,10 +104,7 @@ pub fn format_scalar(label: &str, value: impl std::fmt::Display, format: OutputF
 pub fn format_raw(text: &str, format: OutputFormat) {
     match format {
         OutputFormat::Json => {
-            println!(
-                "{}",
-                serde_json::json!({ "data": text })
-            );
+            println!("{}", serde_json::json!({ "data": text }));
         }
         _ => {
             print!("{text}");

@@ -93,12 +93,10 @@ impl Rdf4jClient {
             .send()?;
         let resp = self.check(resp)?;
         let text = resp.text()?;
-        text.trim()
-            .parse()
-            .map_err(|_| Rdf4jError::ServerError {
-                status: 0,
-                body: format!("Invalid size response: {text}"),
-            })
+        text.trim().parse().map_err(|_| Rdf4jError::ServerError {
+            status: 0,
+            body: format!("Invalid size response: {text}"),
+        })
     }
 
     pub fn sparql_query(
@@ -209,12 +207,7 @@ impl Rdf4jClient {
         Ok(resp.text()?)
     }
 
-    pub fn set_namespace(
-        &self,
-        repo_id: &str,
-        prefix: &str,
-        uri: &str,
-    ) -> Result<(), Rdf4jError> {
+    pub fn set_namespace(&self, repo_id: &str, prefix: &str, uri: &str) -> Result<(), Rdf4jError> {
         let resp = self
             .http
             .put(self.url(&format!("/repositories/{repo_id}/namespaces/{prefix}")))
