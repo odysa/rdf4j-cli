@@ -295,6 +295,118 @@ fn test_upload_turtle_file() {
     client.delete_repo(&repo_id).unwrap();
 }
 
+// ── E2E test: full lifecycle via the CLI binary ─────────
+
+#[test]
+fn test_e2e_create_insert_query_delete() {
+    use std::process::Command;
+
+    let url = server_url();
+    let bin = env!("CARGO_BIN_EXE_rdf4j-cli");
+    let repo_id = random_repo_id();
+
+    let run = |args: &[&str]| -> std::process::Output {
+        let output = Command::new(bin)
+            .args(["--server", url])
+            .args(args)
+            .output()
+            .expect("Failed to execute CLI");
+        if !output.status.success() {
+            panic!(
+                "CLI failed: {:?}\nstdout: {}\nstderr: {}",
+                args,
+                String::from_utf8_lossy(&output.stdout),
+                String::from_utf8_lossy(&output.stderr),
+            );
+        }
+        output
+    };
+
+    let run_stdout = |args: &[&str]| -> String {
+        let output = run(args);
+        String::from_utf8(output.stdout).unwrap()
+    };
+
+    // 1. Create repository
+    let out = run_stdout(&["repo", "create", "--id", &repo_id, "--repo-type", "memory"]);
+    assert!(out.contains("created"));
+
+    // 2. Verify it shows up in repo list
+    let out = run_stdout(&["repo", "list"]);
+    assert!(out.contains(&repo_id));
+
+    // 3. Size should be 0
+    let out = run_stdout(&["repo", "size", &repo_id]);
+    assert!(out.contains('0'));
+
+    // 4. Insert data via SPARQL UPDATE
+    let insert = r#"INSERT DATA {
+        <http://example.org/alice> <http://example.org/name> "Alice" .
+        <http://example.org/bob> <http://example.org/name> "Bob" .
+        <http://example.org/alice> <http://example.org/age> "30" .
+    }"#;
+    let out = run_stdout(&["update", &repo_id, insert]);
+    assert!(out.contains("successfully"));
+
+    // 5. Size should be 3
+    let out = run_stdout(&["repo", "size", &repo_id]);
+    assert!(out.contains('3'));
+
+    // 6. Query — table format (default)
+    let out = run_stdout(&[
+        "query",
+        &repo_id,
+        "SELECT ?name WHERE { ?s <http://example.org/name> ?name } ORDER BY ?name",
+    ]);
+    assert!(out.contains("Alice"));
+    assert!(out.contains("Bob"));
+
+    // 7. Query — JSON format
+    let out = run_stdout(&[
+        "--format",
+        "json",
+        "query",
+        &repo_id,
+        "SELECT ?name WHERE { ?s <http://example.org/name> ?name } ORDER BY ?name",
+    ]);
+    let parsed: serde_json::Value = serde_json::from_str(&out).expect("Invalid JSON output");
+    let names: Vec<&str> = parsed
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|row| row["name"].as_str().unwrap())
+        .collect();
+    assert!(names.iter().any(|n| n.contains("Alice")));
+    assert!(names.iter().any(|n| n.contains("Bob")));
+
+    // 8. Query — CSV format
+    let out = run_stdout(&[
+        "--format",
+        "csv",
+        "query",
+        &repo_id,
+        "SELECT ?name WHERE { ?s <http://example.org/name> ?name } ORDER BY ?name",
+    ]);
+    assert!(out.contains("name")); // header
+    assert!(out.contains("Alice"));
+
+    // 9. ASK query
+    let out = run_stdout(&[
+        "query",
+        &repo_id,
+        r#"ASK { <http://example.org/alice> <http://example.org/name> "Alice" }"#,
+    ]);
+    assert!(out.contains("true"));
+
+    // 10. Delete the repository
+    let out = run_stdout(&["repo", "delete", &repo_id]);
+    assert!(out.contains("deleted"));
+
+    // 11. Verify it's gone
+    let out = run_stdout(&["repo", "list"]);
+    assert!(!out.contains(&repo_id));
+}
+
 // ── Output formatting tests (no Docker needed) ─────────
 
 #[test]
