@@ -8,73 +8,65 @@ use std::thread;
 use std::time::Duration;
 
 use rand::Rng;
-use testcontainers::core::{IntoContainerPort, WaitFor};
-use testcontainers::runners::AsyncRunner;
-use testcontainers::{ContainerAsync, GenericImage, ImageExt};
 
 use rdf4j_cli::cli::{RepoType, StatementFilter};
 use rdf4j_cli::client::Rdf4jClient;
 use rdf4j_cli::commands::repo::generate_repo_config;
 
-const RDF4J_PORT: u16 = 8080;
+/// Returns the base URL of the RDF4J server, starting a container if needed.
+/// All initialization happens on a dedicated thread to avoid nesting tokio runtimes
+/// (reqwest::blocking::Client creates its own runtime internally).
+fn server_url() -> &'static str {
+    static URL: OnceLock<String> = OnceLock::new();
 
-static SERVER: OnceLock<ServerState> = OnceLock::new();
-
-enum ServerState {
-    /// External server provided via RDF4J_TEST_URL.
-    External { base_url: String },
-    /// Testcontainers-managed server.
-    Container {
-        base_url: String,
-        _container: Box<ContainerAsync<GenericImage>>,
-    },
-}
-
-impl ServerState {
-    fn base_url(&self) -> &str {
-        match self {
-            Self::External { base_url } | Self::Container { base_url, .. } => base_url,
+    URL.get_or_init(|| {
+        // If RDF4J_TEST_URL is set, use that directly (CI with service container).
+        if let Ok(url) = std::env::var("RDF4J_TEST_URL") {
+            return url;
         }
-    }
-}
 
-async fn get_server() -> &'static ServerState {
-    if let Some(state) = SERVER.get() {
-        return state;
-    }
+        // Spin up a container on a dedicated thread with its own tokio runtime.
+        // The container handle is leaked intentionally to keep it alive for the
+        // lifetime of the test process.
+        // Spin up a container on a dedicated thread with its own tokio runtime.
+        // Both the runtime and container are leaked so the container stays alive
+        // for the entire test process.
+        let url = thread::spawn(|| {
+            use testcontainers::core::{IntoContainerPort, WaitFor};
+            use testcontainers::runners::AsyncRunner;
+            use testcontainers::{GenericImage, ImageExt};
 
-    // If RDF4J_TEST_URL is set, use that directly (CI with service container).
-    if let Ok(url) = std::env::var("RDF4J_TEST_URL") {
-        let state = ServerState::External {
-            base_url: url.clone(),
-        };
-        let _ = SERVER.set(state);
-        return SERVER.get().unwrap();
-    }
+            let rt = tokio::runtime::Runtime::new().unwrap();
+            let (url, container) = rt.block_on(async {
+                let container = GenericImage::new("eclipse/rdf4j-workbench", "latest")
+                    .with_exposed_port(8080.tcp())
+                    .with_wait_for(WaitFor::message_on_stderr(
+                        "org.eclipse.jetty.server.Server - Started",
+                    ))
+                    .with_startup_timeout(Duration::from_secs(120))
+                    .start()
+                    .await
+                    .expect("Failed to start RDF4J container");
 
-    let container = GenericImage::new("eclipse/rdf4j-workbench", "latest")
-        .with_exposed_port(RDF4J_PORT.tcp())
-        .with_wait_for(WaitFor::message_on_stderr(
-            "org.eclipse.jetty.server.Server - Started",
-        ))
-        .with_startup_timeout(Duration::from_secs(120))
-        .start()
-        .await
-        .expect("Failed to start RDF4J container");
+                let host = container.get_host().await.unwrap();
+                let port = container.get_host_port_ipv4(8080).await.unwrap();
+                let url = format!("http://{host}:{port}/rdf4j-server");
 
-    let host = container.get_host().await.unwrap();
-    let port = container.get_host_port_ipv4(RDF4J_PORT).await.unwrap();
-    let base_url = format!("http://{host}:{port}/rdf4j-server");
+                (url, container)
+            });
 
-    wait_for_server(&base_url);
+            // Leak so they live until process exit.
+            std::mem::forget(container);
+            std::mem::forget(rt);
 
-    let state = ServerState::Container {
-        base_url,
-        _container: Box::new(container),
-    };
+            url
+        })
+        .join()
+        .expect("Container thread panicked");
 
-    let _ = SERVER.set(state);
-    SERVER.get().unwrap()
+        wait_for_server(&url);
+        url
+    })
 }
 
 fn wait_for_server(base_url: &str) {
@@ -88,8 +80,8 @@ fn wait_for_server(base_url: &str) {
     panic!("RDF4J server did not become ready within 150 seconds");
 }
 
-fn new_client(base_url: &str) -> Rdf4jClient {
-    Rdf4jClient::new(base_url).expect("Failed to create client")
+fn new_client() -> Rdf4jClient {
+    Rdf4jClient::new(server_url()).expect("Failed to create client")
 }
 
 fn random_repo_id() -> String {
@@ -103,27 +95,24 @@ fn test_repo_config(id: &str) -> Vec<u8> {
 
 // ── Server tests ────────────────────────────────────────
 
-#[tokio::test]
-async fn test_health() {
-    let state = get_server().await;
-    let client = new_client(state.base_url());
+#[test]
+fn test_health() {
+    let client = new_client();
     assert!(client.health().unwrap());
 }
 
-#[tokio::test]
-async fn test_protocol() {
-    let state = get_server().await;
-    let client = new_client(state.base_url());
+#[test]
+fn test_protocol() {
+    let client = new_client();
     let version = client.protocol().unwrap();
     assert!(!version.is_empty());
 }
 
 // ── Repository tests ───────────────────────────────────
 
-#[tokio::test]
-async fn test_create_list_delete_repo() {
-    let state = get_server().await;
-    let client = new_client(state.base_url());
+#[test]
+fn test_create_list_delete_repo() {
+    let client = new_client();
     let repo_id = random_repo_id();
 
     client
@@ -144,10 +133,9 @@ async fn test_create_list_delete_repo() {
 
 // ── SPARQL query/update tests ──────────────────────────
 
-#[tokio::test]
-async fn test_sparql_insert_and_query() {
-    let state = get_server().await;
-    let client = new_client(state.base_url());
+#[test]
+fn test_sparql_insert_and_query() {
+    let client = new_client();
     let repo_id = random_repo_id();
 
     client
@@ -188,10 +176,9 @@ async fn test_sparql_insert_and_query() {
 
 // ── Statement tests ─────────────────────────────────────
 
-#[tokio::test]
-async fn test_add_get_delete_statements() {
-    let state = get_server().await;
-    let client = new_client(state.base_url());
+#[test]
+fn test_add_get_delete_statements() {
+    let client = new_client();
     let repo_id = random_repo_id();
 
     client
@@ -234,10 +221,9 @@ async fn test_add_get_delete_statements() {
 
 // ── Namespace tests ─────────────────────────────────────
 
-#[tokio::test]
-async fn test_namespace_crud() {
-    let state = get_server().await;
-    let client = new_client(state.base_url());
+#[test]
+fn test_namespace_crud() {
+    let client = new_client();
     let repo_id = random_repo_id();
 
     client
@@ -266,12 +252,11 @@ async fn test_namespace_crud() {
 
 // ── Upload tests ────────────────────────────────────────
 
-#[tokio::test]
-async fn test_upload_turtle_file() {
+#[test]
+fn test_upload_turtle_file() {
     use oxrdfio::{RdfFormat, RdfParser, RdfSerializer};
 
-    let state = get_server().await;
-    let client = new_client(state.base_url());
+    let client = new_client();
     let repo_id = random_repo_id();
 
     client
