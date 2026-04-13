@@ -2,6 +2,12 @@
 name = "rdf4j-cli"
 version = "0.1.0"
 edition = "2024"
+description = "CLI for managing RDF4J repositories via the REST API"
+license = "MIT"
+repository = "https://github.com/odysa/rdf4j-cli"
+keywords = ["rdf", "rdf4j", "sparql", "cli", "linked-data"]
+categories = ["command-line-utilities", "database"]
+readme = "README.md"
 
 [dependencies]
 clap = { version = "4", features = ["derive", "env"] }
