@@ -215,6 +215,16 @@ Or with an external RDF4J server:
 RDF4J_TEST_URL=http://localhost:8080/rdf4j-server cargo test --test integration -- --test-threads=1
 ```
 
+## Examples
+
+See the [examples/](examples/) folder for runnable shell scripts:
+
+- **[complete_workflow.sh](examples/complete_workflow.sh)** -- Full lifecycle: create, insert, query (table/JSON/CSV), delete
+- **[query_formats.sh](examples/query_formats.sh)** -- Table, JSON, and CSV output side by side
+- **[upload_file.sh](examples/upload_file.sh)** -- Upload Turtle files and query with PREFIX
+- **[statements.sh](examples/statements.sh)** -- Add, filter, and delete statements
+- **[namespaces.sh](examples/namespaces.sh)** -- Namespace prefix management
+
 ## Architecture
 
 ```
