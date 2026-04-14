@@ -1,10 +1,10 @@
 [package]
 name = "rdf4j-rs"
-version = "0.1.0"
-edition = "2024"
+version.workspace = true
+edition.workspace = true
 description = "Rust SDK for the RDF4J REST API"
-license = "MIT"
-repository = "https://github.com/odysa/rdf4j-cli"
+license.workspace = true
+repository.workspace = true
 keywords = ["rdf", "rdf4j", "sparql", "linked-data"]
 categories = ["database"]
 

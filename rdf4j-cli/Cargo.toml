@@ -1,10 +1,10 @@
 [package]
 name = "rdf4j-cli"
-version = "0.1.0"
-edition = "2024"
+version.workspace = true
+edition.workspace = true
 description = "CLI for managing RDF4J repositories via the REST API"
-license = "MIT"
-repository = "https://github.com/odysa/rdf4j-cli"
+license.workspace = true
+repository.workspace = true
 keywords = ["rdf", "rdf4j", "sparql", "cli", "linked-data"]
 categories = ["command-line-utilities", "database"]
 readme = "../README.md"
