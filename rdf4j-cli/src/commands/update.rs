@@ -1,7 +1,7 @@
 use anyhow::Result;
 
 use crate::cli::UpdateArgs;
-use crate::client::Rdf4jClient;
+use rdf4j_rs::Rdf4jClient;
 
 pub fn handle(client: &Rdf4jClient, args: &UpdateArgs) -> Result<()> {
     let sparql = args.input.resolve()?;

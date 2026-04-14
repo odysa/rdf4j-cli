@@ -1,13 +1,20 @@
 use reqwest::blocking::Client;
 use reqwest::header::{ACCEPT, CONTENT_TYPE};
 
-use crate::cli::StatementFilter;
 use crate::error::Rdf4jError;
 
 const SPARQL_RESULTS_JSON: &str = "application/sparql-results+json";
 const NQUADS: &str = "application/n-quads";
 const TURTLE: &str = "text/turtle";
 const SPARQL_UPDATE_CT: &str = "application/sparql-update";
+
+#[derive(Default)]
+pub struct StatementFilter {
+    pub subj: Option<String>,
+    pub pred: Option<String>,
+    pub obj: Option<String>,
+    pub context: Option<String>,
+}
 
 pub struct Rdf4jClient {
     http: Client,

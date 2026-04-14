@@ -38,7 +38,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt
-      - run: cargo fmt --check
+      - run: cargo fmt --all --check
 
   test-unit:
     name: Unit Tests
@@ -74,4 +74,4 @@ jobs:
       - name: Run integration tests
         env:
           RDF4J_TEST_URL: http://localhost:8080/rdf4j-server
-        run: cargo test --test integration -- --test-threads=1
+        run: cargo test -p rdf4j-cli --test integration -- --test-threads=1

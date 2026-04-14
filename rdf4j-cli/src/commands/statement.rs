@@ -3,8 +3,8 @@ use std::fs::File;
 use anyhow::Result;
 
 use crate::cli::{OutputFormat, RdfFormatArg, StatementCommand};
-use crate::client::Rdf4jClient;
 use crate::output;
+use rdf4j_rs::Rdf4jClient;
 
 pub fn handle(
     client: &Rdf4jClient,
@@ -15,7 +15,8 @@ pub fn handle(
     match cmd {
         StatementCommand::Get(args) => {
             let infer = !args.no_infer;
-            let result = client.get_statements(repo_id, &args.filter, infer)?;
+            let filter = rdf4j_rs::StatementFilter::from(&args.filter);
+            let result = client.get_statements(repo_id, &filter, infer)?;
             output::format_raw(&result, format);
         }
         StatementCommand::Add(args) => {
@@ -25,7 +26,8 @@ pub fn handle(
             println!("Statements added from '{}'.", args.file.display());
         }
         StatementCommand::Delete(filter) => {
-            client.delete_statements(repo_id, filter)?;
+            let filter = rdf4j_rs::StatementFilter::from(filter);
+            client.delete_statements(repo_id, &filter)?;
             println!("Statements deleted.");
         }
     }

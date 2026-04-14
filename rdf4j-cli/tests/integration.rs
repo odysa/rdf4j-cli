@@ -9,9 +9,7 @@ use std::time::Duration;
 
 use rand::Rng;
 
-use rdf4j_cli::cli::{RepoType, StatementFilter};
-use rdf4j_cli::client::Rdf4jClient;
-use rdf4j_cli::commands::repo::generate_repo_config;
+use rdf4j_rs::{Rdf4jClient, RepoType, StatementFilter, generate_repo_config};
 
 /// Returns the base URL of the RDF4J server, starting a container if needed.
 /// All initialization happens on a dedicated thread to avoid nesting tokio runtimes
@@ -25,9 +23,6 @@ fn server_url() -> &'static str {
             return url;
         }
 
-        // Spin up a container on a dedicated thread with its own tokio runtime.
-        // The container handle is leaked intentionally to keep it alive for the
-        // lifetime of the test process.
         // Spin up a container on a dedicated thread with its own tokio runtime.
         // Both the runtime and container are leaked so the container stays alive
         // for the entire test process.

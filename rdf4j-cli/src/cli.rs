@@ -107,6 +107,15 @@ pub enum RepoType {
     Native,
 }
 
+impl From<RepoType> for rdf4j_rs::RepoType {
+    fn from(t: RepoType) -> Self {
+        match t {
+            RepoType::Memory => rdf4j_rs::RepoType::Memory,
+            RepoType::Native => rdf4j_rs::RepoType::Native,
+        }
+    }
+}
+
 /// Shared args for providing a SPARQL string via positional arg or --file.
 #[derive(Args)]
 pub struct SparqlInput {
@@ -201,6 +210,17 @@ pub struct StatementFilter {
     /// Filter by named graph context
     #[arg(long)]
     pub context: Option<String>,
+}
+
+impl From<&StatementFilter> for rdf4j_rs::StatementFilter {
+    fn from(f: &StatementFilter) -> Self {
+        Self {
+            subj: f.subj.clone(),
+            pred: f.pred.clone(),
+            obj: f.obj.clone(),
+            context: f.context.clone(),
+        }
+    }
 }
 
 #[derive(Args)]
