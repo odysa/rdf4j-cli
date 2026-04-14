@@ -1,8 +1,8 @@
 use anyhow::Result;
 
 use crate::cli::{OutputFormat, ServerCommand};
-use crate::client::Rdf4jClient;
 use crate::output;
+use rdf4j_rs::Rdf4jClient;
 
 pub fn handle(client: &Rdf4jClient, cmd: &ServerCommand, format: OutputFormat) -> Result<()> {
     match cmd {

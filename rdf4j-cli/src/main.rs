@@ -2,8 +2,8 @@ use anyhow::Result;
 use clap::Parser;
 
 use rdf4j_cli::cli::{Cli, Commands};
-use rdf4j_cli::client::Rdf4jClient;
 use rdf4j_cli::commands;
+use rdf4j_rs::Rdf4jClient;
 
 fn main() -> Result<()> {
     let cli = Cli::parse();

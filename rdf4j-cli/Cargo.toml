@@ -1,0 +1,25 @@
+[package]
+name = "rdf4j-cli"
+version.workspace = true
+edition.workspace = true
+description = "CLI for managing RDF4J repositories via the REST API"
+license.workspace = true
+repository.workspace = true
+keywords = ["rdf", "rdf4j", "sparql", "cli", "linked-data"]
+categories = ["command-line-utilities", "database"]
+readme = "../README.md"
+
+[dependencies]
+rdf4j-rs = { version = "0.1.0", path = "../rdf4j-rs" }
+clap = { version = "4", features = ["derive", "env"] }
+serde_json = "1"
+tabled = "0.17"
+anyhow = "1"
+oxrdfio = "0.2"
+sparesults = "0.2"
+csv = "1"
+
+[dev-dependencies]
+testcontainers = "0.23"
+tokio = { version = "1", features = ["rt-multi-thread"] }
+rand = "0.9"

@@ -5,7 +5,7 @@ use anyhow::Result;
 use oxrdfio::{RdfFormat, RdfParser, RdfSerializer};
 
 use crate::cli::{RdfFormatArg, UploadArgs};
-use crate::client::Rdf4jClient;
+use rdf4j_rs::Rdf4jClient;
 
 pub fn handle(client: &Rdf4jClient, args: &UploadArgs) -> Result<()> {
     let input_format = RdfFormatArg::resolve(args.rdf_format, &args.file)?;

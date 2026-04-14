@@ -43,11 +43,11 @@ jobs:
 
       - name: Build (cross)
         if: matrix.target == 'aarch64-unknown-linux-gnu'
-        run: cross build --release --target ${{ matrix.target }}
+        run: cross build -p rdf4j-cli --release --target ${{ matrix.target }}
 
       - name: Build (native)
         if: matrix.target != 'aarch64-unknown-linux-gnu'
-        run: cargo build --release --target ${{ matrix.target }}
+        run: cargo build -p rdf4j-cli --release --target ${{ matrix.target }}
 
       - name: Package (unix)
         if: runner.os != 'Windows'
@@ -98,7 +98,11 @@ jobs:
       - name: Authenticate with crates.io (Trusted Publishing)
         id: auth
         uses: rust-lang/crates-io-auth-action@v1
-      - name: Publish
-        run: cargo publish
+      - name: Publish rdf4j-rs
+        run: cargo publish -p rdf4j-rs
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token }}
+      - name: Publish rdf4j-cli
+        run: cargo publish -p rdf4j-cli
         env:
           CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token }}

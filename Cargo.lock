@@ -1502,16 +1502,24 @@ dependencies = [
  "anyhow",
  "clap",
  "csv",
- "oxrdf 0.3.3",
  "oxrdfio",
  "rand 0.9.3",
- "reqwest",
+ "rdf4j-rs",
  "serde_json",
  "sparesults",
  "tabled",
  "testcontainers",
- "thiserror",
  "tokio",
+]
+
+[[package]]
+name = "rdf4j-rs"
+version = "0.1.0"
+dependencies = [
+ "oxrdf 0.3.3",
+ "oxrdfio",
+ "reqwest",
+ "thiserror",
 ]
 
 [[package]]

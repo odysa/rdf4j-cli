@@ -1,8 +1,8 @@
 use anyhow::Result;
 
 use crate::cli::{NamespaceCommand, OutputFormat};
-use crate::client::Rdf4jClient;
 use crate::output;
+use rdf4j_rs::Rdf4jClient;
 
 pub fn handle(
     client: &Rdf4jClient,

@@ -1,32 +1,12 @@
-use anyhow::Result;
 use oxrdf::{BlankNode, GraphName, Literal, NamedNode, Quad};
 use oxrdfio::{RdfFormat, RdfSerializer};
 
-use crate::cli::{OutputFormat, RepoCommand, RepoType};
-use crate::client::Rdf4jClient;
-use crate::output;
+use crate::error::Rdf4jError;
 
-pub fn handle(client: &Rdf4jClient, cmd: &RepoCommand, format: OutputFormat) -> Result<()> {
-    match cmd {
-        RepoCommand::List => {
-            let json = client.list_repos()?;
-            output::format_sparql_results(json.as_bytes(), format)?;
-        }
-        RepoCommand::Create(args) => {
-            let config = generate_repo_config(&args.id, args.title.as_deref(), args.repo_type)?;
-            client.create_repo(&args.id, config)?;
-            println!("Repository '{}' created.", args.id);
-        }
-        RepoCommand::Delete { id } => {
-            client.delete_repo(id)?;
-            println!("Repository '{id}' deleted.");
-        }
-        RepoCommand::Size { id } => {
-            let size = client.repo_size(id)?;
-            output::format_scalar("size", size, format);
-        }
-    }
-    Ok(())
+#[derive(Copy, Clone)]
+pub enum RepoType {
+    Memory,
+    Native,
 }
 
 const CONFIG_NS: &str = "tag:rdf4j.org,2023:config/";
@@ -40,13 +20,17 @@ fn emit(
     subject: impl Into<oxrdf::NamedOrBlankNode>,
     predicate: NamedNode,
     object: impl Into<oxrdf::Term>,
-) -> Result<()> {
+) -> Result<(), Rdf4jError> {
     let q = Quad::new(subject, predicate, object, GraphName::DefaultGraph);
     ser.serialize_quad(q.as_ref())?;
     Ok(())
 }
 
-pub fn generate_repo_config(id: &str, title: Option<&str>, repo_type: RepoType) -> Result<Vec<u8>> {
+pub fn generate_repo_config(
+    id: &str,
+    title: Option<&str>,
+    repo_type: RepoType,
+) -> Result<Vec<u8>, Rdf4jError> {
     let rdf_type = NamedNode::new_unchecked("http://www.w3.org/1999/02/22-rdf-syntax-ns#type");
     let rdfs_label = NamedNode::new_unchecked("http://www.w3.org/2000/01/rdf-schema#label");
 
