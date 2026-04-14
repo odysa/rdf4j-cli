@@ -3,6 +3,8 @@
 A command-line tool for managing [Eclipse RDF4J](https://rdf4j.org/) repositories via the REST API.
 
 [![CI](https://github.com/odysa/rdf4j-cli/actions/workflows/ci.yml/badge.svg)](https://github.com/odysa/rdf4j-cli/actions/workflows/ci.yml)
+[![crates.io](https://img.shields.io/crates/v/rdf4j-cli.svg)](https://crates.io/crates/rdf4j-cli)
+[![crates.io](https://img.shields.io/crates/v/rdf4j-rs.svg)](https://crates.io/crates/rdf4j-rs)
 
 ## Features
 
@@ -14,12 +16,25 @@ A command-line tool for managing [Eclipse RDF4J](https://rdf4j.org/) repositorie
 - **File upload** -- upload RDF files (Turtle, N-Triples, N-Quads, RDF/XML, JSON-LD, TriG, N3) with automatic format detection
 - **Multiple output formats** -- `--format table` (default), `json`, or `csv`
 
+## Crates
+
+| Crate | Description |
+|-------|-------------|
+| [rdf4j-cli](https://crates.io/crates/rdf4j-cli) | CLI for managing RDF4J repositories via the REST API |
+| [rdf4j-rs](https://crates.io/crates/rdf4j-rs) | Rust SDK for the RDF4J REST API |
+
 ## Installation
+
+### From crates.io
+
+```sh
+cargo install rdf4j-cli
+```
 
 ### From source
 
 ```sh
-cargo install --path .
+cargo install --path rdf4j-cli
 ```
 
 ### Build from Git
@@ -228,21 +243,27 @@ See the [examples/](examples/) folder for runnable shell scripts:
 ## Architecture
 
 ```
-src/
-  main.rs           Entry point
-  lib.rs            Public module exports
-  cli.rs            Clap command definitions
-  client.rs         RDF4J HTTP client
-  error.rs          Error types
-  output.rs         Table/JSON/CSV formatting
-  commands/
-    server.rs       health, protocol
-    repo.rs         list, create, delete, size
-    query.rs        SPARQL query
-    update.rs       SPARQL update
-    namespace.rs    namespace CRUD
-    statement.rs    statement get/add/delete
-    upload.rs       RDF file upload
+rdf4j-rs/             Library crate (Rust SDK)
+  src/
+    lib.rs            Public module exports
+    client.rs         RDF4J HTTP client
+    error.rs          Error types
+    repo.rs           Repository configuration types
+
+rdf4j-cli/            Binary crate (CLI)
+  src/
+    main.rs           Entry point
+    lib.rs            Public module exports
+    cli.rs            Clap command definitions
+    output.rs         Table/JSON/CSV formatting
+    commands/
+      server.rs       health, protocol
+      repo.rs         list, create, delete, size
+      query.rs        SPARQL query
+      update.rs       SPARQL update
+      namespace.rs    namespace CRUD
+      statement.rs    statement get/add/delete
+      upload.rs       RDF file upload
 ```
 
 ### Key dependencies
